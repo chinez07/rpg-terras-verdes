@@ -188,11 +188,11 @@
     <div id="dialogue">
       <div class="name" id="dlg-name"></div>
       <div class="text" id="dlg-text"></div>
-      <div class="hint">Pressione E para continuar / fechar</div>
+      <div class="hint">E / Espaço / Enter = continuar &nbsp;|&nbsp; Esc = fechar &nbsp;|&nbsp; Clique aqui também funciona</div>
     </div>
     <div id="message"></div>
     <div id="controls">
-      WASD / Setas = Mover &nbsp;|&nbsp; E = Falar / Interagir &nbsp;|&nbsp; Espaço = Atacar
+      WASD / Setas = Mover &nbsp;|&nbsp; E = Falar / Interagir &nbsp;|&nbsp; Espaço = Atacar &nbsp;|&nbsp; Esc = Fechar diálogo
     </div>
     <div id="title-screen">
       <h1>🌿 Aventura nas Terras Verdes</h1>
@@ -403,11 +403,17 @@ spawnEnemies();
 
 // ============== CONTROLES ==============
 const keys = {};
+const justPressed = {};
+
 window.addEventListener('keydown', e => {
-  keys[e.key.toLowerCase()] = true;
-  if (['arrowup','arrowdown','arrowleft','arrowright',' '].includes(e.key.toLowerCase())) e.preventDefault();
+  const k = e.key.toLowerCase();
+  if (!keys[k]) justPressed[k] = true; // só marca se não estava pressionada
+  keys[k] = true;
+  if (['arrowup','arrowdown','arrowleft','arrowright',' '].includes(k)) e.preventDefault();
 });
-window.addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
+window.addEventListener('keyup', e => {
+  keys[e.key.toLowerCase()] = false;
+});
 
 let gameStarted = false;
 let dialogueOpen = false;
@@ -458,7 +464,20 @@ function isSolid(px, py, w, h) {
 
 // ============== ATUALIZAÇÃO ==============
 function update() {
-  if (!gameStarted || dialogueOpen) return;
+  if (!gameStarted) return;
+
+  // ===== DIÁLOGO ABERTO =====
+  if (dialogueOpen) {
+    if (justPressed['e'] || justPressed['enter'] || justPressed[' ']) {
+      advanceDialogue();
+    }
+    if (justPressed['escape']) {
+      closeDialogue();
+    }
+    // limpa justPressed no final
+    for (const k in justPressed) justPressed[k] = false;
+    return;
+  }
 
   // Movimento
   let dx = 0, dy = 0;
@@ -482,14 +501,13 @@ function update() {
   if (player.invincible > 0) player.invincible--;
 
   // Ataque
-  if (keys[' '] && player.attackCooldown <= 0) {
+  if (justPressed[' '] && player.attackCooldown <= 0) {
     player.attackCooldown = 25;
     attack();
   }
 
   // Interagir com NPC
-  if (keys['e']) {
-    keys['e'] = false; // evita spam
+  if (justPressed['e']) {
     interact();
   }
 
@@ -503,8 +521,12 @@ function update() {
         player.inv.erva++;
         showMessage('+1 Erva Mágica 🌿');
       } else if (it.type === 'moeda') {
-        player.coins += 5 + Math.floor(Math.random()*6);
-        showMessage(`+${5 + Math.floor(Math.random()*6)} Moedas 💰`);
+        const ganho = 5 + Math.floor(Math.random()*6);
+        player.coins += ganho;
+        showMessage(`+${ganho} Moedas 💰`);
+      } else if (it.type === 'cristal') {
+        player.inv.cristal++;
+        showMessage('+1 Cristal 💎');
       }
       updateUI();
     }
@@ -549,6 +571,9 @@ function update() {
     messageTimer--;
     if (messageTimer <= 0) document.getElementById('message').style.display = 'none';
   }
+
+  // limpa justPressed no final do frame
+  for (const k in justPressed) justPressed[k] = false;
 }
 
 function attack() {
@@ -602,9 +627,10 @@ function interact() {
 
 function openDialogue() {
   dialogueOpen = true;
+  dlgIndex = 0;
   const dlg = document.getElementById('dialogue');
   document.getElementById('dlg-name').textContent = currentNpc.name;
-  document.getElementById('dlg-text').textContent = currentNpc.dialogues[dlgIndex];
+  document.getElementById('dlg-text').textContent = currentNpc.dialogues[0];
   dlg.style.display = 'block';
 
   // Checar quest
@@ -627,23 +653,26 @@ function openDialogue() {
   }
 }
 
+function closeDialogue() {
+  dialogueOpen = false;
+  document.getElementById('dialogue').style.display = 'none';
+  currentNpc = null;
+  dlgIndex = 0;
+}
+
 function advanceDialogue() {
-  if (!dialogueOpen) return;
+  if (!dialogueOpen || !currentNpc) return;
   dlgIndex++;
   if (dlgIndex >= currentNpc.dialogues.length) {
-    dialogueOpen = false;
-    document.getElementById('dialogue').style.display = 'none';
-    currentNpc = null;
+    closeDialogue();
   } else {
     document.getElementById('dlg-text').textContent = currentNpc.dialogues[dlgIndex];
   }
 }
 
-// Avançar diálogo com E
-window.addEventListener('keydown', e => {
-  if (e.key.toLowerCase() === 'e' && dialogueOpen) {
-    advanceDialogue();
-  }
+// Clique na caixa de diálogo também avança
+document.getElementById('dialogue').addEventListener('click', () => {
+  if (dialogueOpen) advanceDialogue();
 });
 
 // ============== DESENHO ==============
