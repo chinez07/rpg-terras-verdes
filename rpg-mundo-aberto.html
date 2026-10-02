@@ -1,0 +1,840 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Aventura nas Terras Verdes - RPG 2D</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #0a0a12;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    overflow: hidden;
+    color: #eee;
+  }
+  #container {
+    position: relative;
+    box-shadow: 0 0 40px rgba(0,0,0,0.8);
+  }
+  canvas {
+    display: block;
+    image-rendering: pixelated;
+    background: #1a2a1a;
+  }
+  #ui {
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    pointer-events: none;
+  }
+  #hud {
+    position: absolute;
+    top: 12px; left: 12px;
+    background: rgba(0,0,0,0.75);
+    padding: 10px 14px;
+    border-radius: 8px;
+    border: 1px solid #444;
+    font-size: 14px;
+    line-height: 1.5;
+  }
+  #hud .bar {
+    width: 140px;
+    height: 12px;
+    background: #333;
+    border-radius: 6px;
+    margin-top: 4px;
+    overflow: hidden;
+  }
+  #hud .bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #c22, #e44);
+    transition: width 0.2s;
+  }
+  #inventory {
+    position: absolute;
+    top: 12px; right: 12px;
+    background: rgba(0,0,0,0.75);
+    padding: 10px 14px;
+    border-radius: 8px;
+    border: 1px solid #444;
+    font-size: 13px;
+    min-width: 130px;
+  }
+  #dialogue {
+    position: absolute;
+    bottom: 20px; left: 50%;
+    transform: translateX(-50%);
+    width: 90%;
+    max-width: 520px;
+    background: rgba(15,15,25,0.95);
+    border: 2px solid #5a4;
+    border-radius: 10px;
+    padding: 16px 20px;
+    display: none;
+    pointer-events: auto;
+  }
+  #dialogue .name {
+    color: #8f8;
+    font-weight: bold;
+    margin-bottom: 6px;
+    font-size: 15px;
+  }
+  #dialogue .text {
+    font-size: 14px;
+    line-height: 1.45;
+  }
+  #dialogue .hint {
+    margin-top: 10px;
+    font-size: 12px;
+    color: #888;
+  }
+  #message {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(0,0,0,0.85);
+    padding: 12px 24px;
+    border-radius: 8px;
+    font-size: 16px;
+    display: none;
+    pointer-events: none;
+  }
+  #controls {
+    position: absolute;
+    bottom: 12px; left: 12px;
+    font-size: 11px;
+    color: #666;
+    background: rgba(0,0,0,0.5);
+    padding: 6px 10px;
+    border-radius: 6px;
+  }
+  #title-screen {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(180deg, #0a1a0a, #1a2a1a);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    z-index: 10;
+    pointer-events: auto;
+  }
+  #title-screen h1 {
+    font-size: 32px;
+    color: #8f8;
+    text-shadow: 0 0 20px #4a4;
+    margin-bottom: 8px;
+  }
+  #title-screen p {
+    color: #aaa;
+    margin-bottom: 30px;
+    font-size: 14px;
+  }
+  #title-screen button {
+    background: #2a5a2a;
+    color: #efe;
+    border: 2px solid #5a8;
+    padding: 12px 36px;
+    font-size: 18px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: 0.2s;
+  }
+  #title-screen button:hover {
+    background: #3a7a3a;
+    transform: scale(1.05);
+  }
+  #gameover {
+    position: absolute;
+    inset: 0;
+    background: rgba(20,0,0,0.9);
+    display: none;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    z-index: 20;
+    pointer-events: auto;
+  }
+  #gameover h2 { color: #f44; font-size: 36px; margin-bottom: 12px; }
+  #gameover button {
+    background: #522;
+    color: #fff;
+    border: 2px solid #a44;
+    padding: 10px 28px;
+    font-size: 16px;
+    border-radius: 8px;
+    cursor: pointer;
+    margin-top: 20px;
+  }
+</style>
+</head>
+<body>
+<div id="container">
+  <canvas id="game" width="800" height="500"></canvas>
+  <div id="ui">
+    <div id="hud">
+      <div>❤️ Vida</div>
+      <div class="bar"><div class="bar-fill" id="hp-bar" style="width:100%"></div></div>
+      <div style="margin-top:6px">⚔️ Ataque: <span id="atk-val">8</span></div>
+      <div>💰 Moedas: <span id="coins">0</span></div>
+    </div>
+    <div id="inventory">
+      <div style="font-weight:bold;margin-bottom:4px">🎒 Inventário</div>
+      <div id="inv-list">Vazio</div>
+    </div>
+    <div id="dialogue">
+      <div class="name" id="dlg-name"></div>
+      <div class="text" id="dlg-text"></div>
+      <div class="hint">Pressione E para continuar / fechar</div>
+    </div>
+    <div id="message"></div>
+    <div id="controls">
+      WASD / Setas = Mover &nbsp;|&nbsp; E = Falar / Interagir &nbsp;|&nbsp; Espaço = Atacar
+    </div>
+    <div id="title-screen">
+      <h1>🌿 Aventura nas Terras Verdes</h1>
+      <p>Um pequeno RPG de mundo aberto em 2D</p>
+      <button onclick="startGame()">Começar Aventura</button>
+    </div>
+    <div id="gameover">
+      <h2>Você foi derrotado...</h2>
+      <p>As Terras Verdes ainda esperam por um herói.</p>
+      <button onclick="location.reload()">Tentar de Novo</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+const TILE = 32;
+const MAP_W = 50;
+const MAP_H = 40;
+
+// ============== MAPA ==============
+// 0=grama, 1=caminho, 2=água, 3=árvore, 4=parede, 5=chão casa, 6=flor, 7=areia
+const map = [];
+for (let y = 0; y < MAP_H; y++) {
+  map[y] = [];
+  for (let x = 0; x < MAP_W; x++) {
+    map[y][x] = 0; // grama padrão
+  }
+}
+
+// Gerar mapa procedural simples
+function generateMap() {
+  // Floresta densa nas bordas
+  for (let y = 0; y < MAP_H; y++) {
+    for (let x = 0; x < MAP_W; x++) {
+      if (x < 3 || x > MAP_W-4 || y < 2 || y > MAP_H-3) {
+        if (Math.random() < 0.7) map[y][x] = 3;
+      }
+    }
+  }
+
+  // Lago no canto superior direito
+  for (let y = 4; y < 14; y++) {
+    for (let x = 35; x < 47; x++) {
+      const dx = x - 41, dy = y - 9;
+      if (dx*dx + dy*dy < 35) map[y][x] = 2;
+    }
+  }
+
+  // Areia ao redor do lago
+  for (let y = 3; y < 15; y++) {
+    for (let x = 34; x < 48; x++) {
+      if (map[y][x] === 0 && Math.random() < 0.4) map[y][x] = 7;
+    }
+  }
+
+  // Caminhos
+  for (let x = 8; x < 42; x++) map[20][x] = 1;
+  for (let y = 12; y < 28; y++) map[y][20] = 1;
+  for (let x = 20; x < 38; x++) map[12][x] = 1;
+  for (let y = 20; y < 32; y++) map[y][35] = 1;
+
+  // Vilarejo (casas)
+  // Casa 1
+  for (let y = 15; y <= 19; y++)
+    for (let x = 10; x <= 15; x++)
+      map[y][x] = (y===15 || y===19 || x===10 || x===15) ? 4 : 5;
+  // Casa 2
+  for (let y = 22; y <= 26; y++)
+    for (let x = 24; x <= 29; x++)
+      map[y][x] = (y===22 || y===26 || x===24 || x===29) ? 4 : 5;
+  // Casa 3
+  for (let y = 14; y <= 18; y++)
+    for (let x = 30; x <= 35; x++)
+      map[y][x] = (y===14 || y===18 || x===30 || x===35) ? 4 : 5;
+
+  // Portas
+  map[19][12] = 5; map[19][13] = 5;
+  map[26][26] = 5; map[26][27] = 5;
+  map[18][32] = 5; map[18][33] = 5;
+
+  // Algumas flores
+  for (let i = 0; i < 40; i++) {
+    const x = 5 + Math.floor(Math.random()*40);
+    const y = 5 + Math.floor(Math.random()*30);
+    if (map[y][x] === 0) map[y][x] = 6;
+  }
+
+  // Árvores extras na floresta
+  for (let i = 0; i < 80; i++) {
+    const x = Math.floor(Math.random()*MAP_W);
+    const y = Math.floor(Math.random()*MAP_H);
+    if (map[y][x] === 0 && (x < 8 || x > 42 || y < 8 || y > 32)) {
+      map[y][x] = 3;
+    }
+  }
+}
+generateMap();
+
+const solid = new Set([2, 3, 4]); // água, árvore, parede
+
+// ============== CORES DOS TILES ==============
+const tileColors = {
+  0: '#3a7a3a', // grama
+  1: '#c2a06a', // caminho
+  2: '#2a6aaa', // água
+  3: '#1a4a1a', // árvore base
+  4: '#5a4a3a', // parede
+  5: '#8a7a5a', // chão casa
+  6: '#3a7a3a', // grama com flor
+  7: '#d2c28a'  // areia
+};
+
+// ============== JOGADOR ==============
+const player = {
+  x: 13 * TILE,
+  y: 21 * TILE,
+  w: 20, h: 24,
+  speed: 2.8,
+  hp: 100,
+  maxHp: 100,
+  atk: 8,
+  coins: 0,
+  dir: 'down',
+  inv: { erva: 0, pocoa: 0, cristal: 0 },
+  attackCooldown: 0,
+  invincible: 0
+};
+
+// ============== NPCs ==============
+const npcs = [
+  {
+    x: 12*TILE, y: 17*TILE, name: "Eldrin o Sábio",
+    color: '#4a8', dialogues: [
+      "Bem-vindo às Terras Verdes, aventureiro!",
+      "Os slimes estão se multiplicando na floresta norte...",
+      "Se coletar 5 Ervas Mágicas, posso te dar uma Poção.",
+      "Cuidado com a água do lago. Dizem que é profunda."
+    ], quest: { type: 'erva', need: 5, done: false, reward: 'pocoa' }
+  },
+  {
+    x: 26*TILE, y: 24*TILE, name: "Mira a Caçadora",
+    color: '#a84', dialogues: [
+      "Ei! Você parece forte.",
+      "Derrote alguns slimes e me traga 3 Cristais.",
+      "Eles dropam quando você os derrota.",
+      "Boa sorte lá fora!"
+    ], quest: { type: 'cristal', need: 3, done: false, reward: 'atk' }
+  },
+  {
+    x: 32*TILE, y: 16*TILE, name: "Tio Borin",
+    color: '#88a', dialogues: [
+      "Ah, um viajante! Quer ouvir uma história?",
+      "Antigamente havia um grande reino aqui...",
+      "Agora só restam ruínas e monstros.",
+      "Mas quem sabe você mude o destino destas terras?"
+    ]
+  }
+];
+
+// ============== ITENS NO CHÃO ==============
+const items = [];
+function spawnItems() {
+  // Ervas
+  for (let i = 0; i < 12; i++) {
+    let x, y;
+    do {
+      x = Math.floor(Math.random()*MAP_W);
+      y = Math.floor(Math.random()*MAP_H);
+    } while (solid.has(map[y][x]) || map[y][x] === 5);
+    items.push({ x: x*TILE+8, y: y*TILE+8, type: 'erva', taken: false });
+  }
+  // Moedas
+  for (let i = 0; i < 8; i++) {
+    let x, y;
+    do {
+      x = Math.floor(Math.random()*MAP_W);
+      y = Math.floor(Math.random()*MAP_H);
+    } while (solid.has(map[y][x]));
+    items.push({ x: x*TILE+10, y: y*TILE+10, type: 'moeda', taken: false });
+  }
+}
+spawnItems();
+
+// ============== INIMIGOS (SLIMES) ==============
+const enemies = [];
+function spawnEnemies() {
+  for (let i = 0; i < 14; i++) {
+    let x, y;
+    do {
+      x = 5 + Math.floor(Math.random()*40);
+      y = 5 + Math.floor(Math.random()*30);
+    } while (solid.has(map[y][x]) || map[y][x] === 5 || (x > 8 && x < 36 && y > 12 && y < 28));
+    enemies.push({
+      x: x*TILE, y: y*TILE,
+      w: 22, h: 18,
+      hp: 20 + Math.floor(Math.random()*15),
+      maxHp: 30,
+      speed: 0.9 + Math.random()*0.6,
+      dir: Math.random()*Math.PI*2,
+      changeDir: 0,
+      hit: 0
+    });
+  }
+}
+spawnEnemies();
+
+// ============== CONTROLES ==============
+const keys = {};
+window.addEventListener('keydown', e => {
+  keys[e.key.toLowerCase()] = true;
+  if (['arrowup','arrowdown','arrowleft','arrowright',' '].includes(e.key.toLowerCase())) e.preventDefault();
+});
+window.addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
+
+let gameStarted = false;
+let dialogueOpen = false;
+let currentNpc = null;
+let dlgIndex = 0;
+let messageTimer = 0;
+let messageText = '';
+
+function startGame() {
+  document.getElementById('title-screen').style.display = 'none';
+  gameStarted = true;
+  requestAnimationFrame(loop);
+}
+
+function showMessage(txt, time = 90) {
+  messageText = txt;
+  messageTimer = time;
+  const el = document.getElementById('message');
+  el.textContent = txt;
+  el.style.display = 'block';
+}
+
+function updateUI() {
+  document.getElementById('hp-bar').style.width = (player.hp / player.maxHp * 100) + '%';
+  document.getElementById('atk-val').textContent = player.atk;
+  document.getElementById('coins').textContent = player.coins;
+  const inv = [];
+  if (player.inv.erva) inv.push(`🌿 Erva x${player.inv.erva}`);
+  if (player.inv.pocoa) inv.push(`🧪 Poção x${player.inv.pocoa}`);
+  if (player.inv.cristal) inv.push(`💎 Cristal x${player.inv.cristal}`);
+  document.getElementById('inv-list').innerHTML = inv.length ? inv.join('<br>') : 'Vazio';
+}
+
+// ============== COLISÃO ==============
+function isSolid(px, py, w, h) {
+  const points = [
+    [px, py], [px+w, py], [px, py+h], [px+w, py+h],
+    [px+w/2, py], [px+w/2, py+h], [px, py+h/2], [px+w, py+h/2]
+  ];
+  for (const [x,y] of points) {
+    const tx = Math.floor(x / TILE);
+    const ty = Math.floor(y / TILE);
+    if (tx < 0 || ty < 0 || tx >= MAP_W || ty >= MAP_H) return true;
+    if (solid.has(map[ty][tx])) return true;
+  }
+  return false;
+}
+
+// ============== ATUALIZAÇÃO ==============
+function update() {
+  if (!gameStarted || dialogueOpen) return;
+
+  // Movimento
+  let dx = 0, dy = 0;
+  if (keys['w'] || keys['arrowup'])    { dy = -player.speed; player.dir = 'up'; }
+  if (keys['s'] || keys['arrowdown'])  { dy = player.speed;  player.dir = 'down'; }
+  if (keys['a'] || keys['arrowleft'])  { dx = -player.speed; player.dir = 'left'; }
+  if (keys['d'] || keys['arrowright']) { dx = player.speed;  player.dir = 'right'; }
+
+  // Normalizar diagonal
+  if (dx && dy) { dx *= 0.707; dy *= 0.707; }
+
+  if (dx && !isSolid(player.x + dx, player.y, player.w, player.h)) player.x += dx;
+  if (dy && !isSolid(player.x, player.y + dy, player.w, player.h)) player.y += dy;
+
+  // Limites do mapa
+  player.x = Math.max(0, Math.min(player.x, MAP_W*TILE - player.w));
+  player.y = Math.max(0, Math.min(player.y, MAP_H*TILE - player.h));
+
+  // Cooldowns
+  if (player.attackCooldown > 0) player.attackCooldown--;
+  if (player.invincible > 0) player.invincible--;
+
+  // Ataque
+  if (keys[' '] && player.attackCooldown <= 0) {
+    player.attackCooldown = 25;
+    attack();
+  }
+
+  // Interagir com NPC
+  if (keys['e']) {
+    keys['e'] = false; // evita spam
+    interact();
+  }
+
+  // Coletar itens
+  for (const it of items) {
+    if (it.taken) continue;
+    if (Math.abs(player.x + player.w/2 - (it.x+8)) < 18 &&
+        Math.abs(player.y + player.h/2 - (it.y+8)) < 18) {
+      it.taken = true;
+      if (it.type === 'erva') {
+        player.inv.erva++;
+        showMessage('+1 Erva Mágica 🌿');
+      } else if (it.type === 'moeda') {
+        player.coins += 5 + Math.floor(Math.random()*6);
+        showMessage(`+${5 + Math.floor(Math.random()*6)} Moedas 💰`);
+      }
+      updateUI();
+    }
+  }
+
+  // Inimigos
+  for (const e of enemies) {
+    if (e.hp <= 0) continue;
+    e.changeDir--;
+    if (e.changeDir <= 0) {
+      e.dir = Math.random() * Math.PI * 2;
+      e.changeDir = 40 + Math.random()*60;
+    }
+    // Persegue se perto
+    const dist = Math.hypot(player.x - e.x, player.y - e.y);
+    if (dist < 160) {
+      e.dir = Math.atan2(player.y - e.y, player.x - e.x);
+    }
+    const ex = Math.cos(e.dir) * e.speed;
+    const ey = Math.sin(e.dir) * e.speed;
+    if (!isSolid(e.x + ex, e.y, e.w, e.h)) e.x += ex;
+    if (!isSolid(e.x, e.y + ey, e.w, e.h)) e.y += ey;
+
+    // Colisão com jogador
+    if (player.invincible <= 0 &&
+        Math.abs(player.x + player.w/2 - (e.x + e.w/2)) < 18 &&
+        Math.abs(player.y + player.h/2 - (e.y + e.h/2)) < 16) {
+      player.hp -= 12;
+      player.invincible = 40;
+      showMessage('Você levou dano! 💔');
+      updateUI();
+      if (player.hp <= 0) {
+        player.hp = 0;
+        document.getElementById('gameover').style.display = 'flex';
+        gameStarted = false;
+      }
+    }
+    if (e.hit > 0) e.hit--;
+  }
+
+  if (messageTimer > 0) {
+    messageTimer--;
+    if (messageTimer <= 0) document.getElementById('message').style.display = 'none';
+  }
+}
+
+function attack() {
+  let hitAny = false;
+  for (const e of enemies) {
+    if (e.hp <= 0) continue;
+    const dist = Math.hypot(player.x + player.w/2 - (e.x + e.w/2),
+                            player.y + player.h/2 - (e.y + e.h/2));
+    if (dist < 42) {
+      e.hp -= player.atk;
+      e.hit = 10;
+      hitAny = true;
+      if (e.hp <= 0) {
+        // Drop
+        if (Math.random() < 0.6) {
+          items.push({ x: e.x + 5, y: e.y + 5, type: 'cristal', taken: false });
+        }
+        player.coins += 3 + Math.floor(Math.random()*5);
+        showMessage('Slime derrotado! 💀');
+        updateUI();
+      }
+    }
+  }
+  if (!hitAny) showMessage('Ataque!', 30);
+}
+
+function interact() {
+  // Usar poção se tiver
+  if (player.inv.pocoa > 0 && player.hp < player.maxHp) {
+    // prioritiza diálogo se perto de NPC
+  }
+
+  for (const npc of npcs) {
+    const dist = Math.hypot(player.x - npc.x, player.y - npc.y);
+    if (dist < 50) {
+      currentNpc = npc;
+      dlgIndex = 0;
+      openDialogue();
+      return;
+    }
+  }
+
+  // Usar poção com E se não houver NPC
+  if (player.inv.pocoa > 0 && player.hp < player.maxHp) {
+    player.inv.pocoa--;
+    player.hp = Math.min(player.maxHp, player.hp + 40);
+    showMessage('Poção usada! +40 HP 🧪');
+    updateUI();
+  }
+}
+
+function openDialogue() {
+  dialogueOpen = true;
+  const dlg = document.getElementById('dialogue');
+  document.getElementById('dlg-name').textContent = currentNpc.name;
+  document.getElementById('dlg-text').textContent = currentNpc.dialogues[dlgIndex];
+  dlg.style.display = 'block';
+
+  // Checar quest
+  if (currentNpc.quest && !currentNpc.quest.done) {
+    const q = currentNpc.quest;
+    if (q.type === 'erva' && player.inv.erva >= q.need) {
+      player.inv.erva -= q.need;
+      player.inv.pocoa += 1;
+      q.done = true;
+      showMessage('Missão completa! Você ganhou uma Poção 🧪');
+      updateUI();
+    }
+    if (q.type === 'cristal' && player.inv.cristal >= q.need) {
+      player.inv.cristal -= q.need;
+      player.atk += 4;
+      q.done = true;
+      showMessage('Missão completa! Ataque +4 ⚔️');
+      updateUI();
+    }
+  }
+}
+
+function advanceDialogue() {
+  if (!dialogueOpen) return;
+  dlgIndex++;
+  if (dlgIndex >= currentNpc.dialogues.length) {
+    dialogueOpen = false;
+    document.getElementById('dialogue').style.display = 'none';
+    currentNpc = null;
+  } else {
+    document.getElementById('dlg-text').textContent = currentNpc.dialogues[dlgIndex];
+  }
+}
+
+// Avançar diálogo com E
+window.addEventListener('keydown', e => {
+  if (e.key.toLowerCase() === 'e' && dialogueOpen) {
+    advanceDialogue();
+  }
+});
+
+// ============== DESENHO ==============
+function draw() {
+  // Câmera
+  const camX = Math.max(0, Math.min(player.x - canvas.width/2 + player.w/2, MAP_W*TILE - canvas.width));
+  const camY = Math.max(0, Math.min(player.y - canvas.height/2 + player.h/2, MAP_H*TILE - canvas.height));
+
+  ctx.save();
+  ctx.translate(-camX, -camY);
+
+  // Tiles
+  const startX = Math.floor(camX / TILE);
+  const startY = Math.floor(camY / TILE);
+  const endX = startX + Math.ceil(canvas.width / TILE) + 1;
+  const endY = startY + Math.ceil(canvas.height / TILE) + 1;
+
+  for (let y = startY; y < endY; y++) {
+    for (let x = startX; x < endX; x++) {
+      if (y < 0 || x < 0 || y >= MAP_H || x >= MAP_W) continue;
+      const t = map[y][x];
+      ctx.fillStyle = tileColors[t] || '#333';
+      ctx.fillRect(x*TILE, y*TILE, TILE, TILE);
+
+      // Detalhes
+      if (t === 0 || t === 6) {
+        // grama variação
+        ctx.fillStyle = '#2a6a2a';
+        if ((x+y) % 3 === 0) ctx.fillRect(x*TILE+4, y*TILE+8, 6, 4);
+      }
+      if (t === 6) {
+        // flor
+        ctx.fillStyle = '#e48';
+        ctx.beginPath();
+        ctx.arc(x*TILE+16, y*TILE+14, 4, 0, Math.PI*2);
+        ctx.fill();
+        ctx.fillStyle = '#ff8';
+        ctx.beginPath();
+        ctx.arc(x*TILE+16, y*TILE+14, 2, 0, Math.PI*2);
+        ctx.fill();
+      }
+      if (t === 3) {
+        // árvore
+        ctx.fillStyle = '#5a3a1a';
+        ctx.fillRect(x*TILE+12, y*TILE+18, 8, 14);
+        ctx.fillStyle = '#2a6a2a';
+        ctx.beginPath();
+        ctx.arc(x*TILE+16, y*TILE+12, 14, 0, Math.PI*2);
+        ctx.fill();
+        ctx.fillStyle = '#3a8a3a';
+        ctx.beginPath();
+        ctx.arc(x*TILE+16, y*TILE+8, 10, 0, Math.PI*2);
+        ctx.fill();
+      }
+      if (t === 2) {
+        // água brilho
+        ctx.fillStyle = 'rgba(100,180,255,0.3)';
+        if ((x + Math.floor(Date.now()/400)) % 3 === 0)
+          ctx.fillRect(x*TILE+6, y*TILE+10, 12, 4);
+      }
+      if (t === 4) {
+        // tijolos
+        ctx.strokeStyle = '#3a2a1a';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(x*TILE+1, y*TILE+1, TILE-2, TILE-2);
+      }
+    }
+  }
+
+  // Itens
+  for (const it of items) {
+    if (it.taken) continue;
+    if (it.type === 'erva') {
+      ctx.fillStyle = '#4c4';
+      ctx.beginPath();
+      ctx.ellipse(it.x+6, it.y+10, 7, 5, 0, 0, Math.PI*2);
+      ctx.fill();
+      ctx.fillStyle = '#2a2';
+      ctx.fillRect(it.x+5, it.y+8, 2, 8);
+    } else if (it.type === 'moeda') {
+      ctx.fillStyle = '#fc3';
+      ctx.beginPath();
+      ctx.arc(it.x+6, it.y+6, 7, 0, Math.PI*2);
+      ctx.fill();
+      ctx.fillStyle = '#da0';
+      ctx.beginPath();
+      ctx.arc(it.x+6, it.y+6, 4, 0, Math.PI*2);
+      ctx.fill();
+    } else if (it.type === 'cristal') {
+      ctx.fillStyle = '#4af';
+      ctx.beginPath();
+      ctx.moveTo(it.x+6, it.y);
+      ctx.lineTo(it.x+12, it.y+10);
+      ctx.lineTo(it.x+6, it.y+16);
+      ctx.lineTo(it.x, it.y+10);
+      ctx.closePath();
+      ctx.fill();
+    }
+  }
+
+  // NPCs
+  for (const npc of npcs) {
+    // corpo
+    ctx.fillStyle = npc.color;
+    ctx.fillRect(npc.x+4, npc.y+6, 20, 22);
+    // cabeça
+    ctx.fillStyle = '#fdb';
+    ctx.beginPath();
+    ctx.arc(npc.x+14, npc.y+6, 9, 0, Math.PI*2);
+    ctx.fill();
+    // olhos
+    ctx.fillStyle = '#222';
+    ctx.fillRect(npc.x+10, npc.y+4, 3, 3);
+    ctx.fillRect(npc.x+16, npc.y+4, 3, 3);
+    // nome
+    ctx.fillStyle = '#fff';
+    ctx.font = '11px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(npc.name.split(' ')[0], npc.x+14, npc.y-4);
+  }
+
+  // Inimigos
+  for (const e of enemies) {
+    if (e.hp <= 0) continue;
+    ctx.globalAlpha = e.hit > 0 ? 0.5 : 1;
+    // slime
+    ctx.fillStyle = '#3c3';
+    ctx.beginPath();
+    ctx.ellipse(e.x + e.w/2, e.y + e.h/2 + 2, e.w/2, e.h/2, 0, 0, Math.PI*2);
+    ctx.fill();
+    ctx.fillStyle = '#5e5';
+    ctx.beginPath();
+    ctx.ellipse(e.x + e.w/2, e.y + e.h/2 - 2, e.w/2-3, e.h/2-3, 0, 0, Math.PI*2);
+    ctx.fill();
+    // olhos
+    ctx.fillStyle = '#111';
+    ctx.beginPath();
+    ctx.arc(e.x + 7, e.y + 7, 3, 0, Math.PI*2);
+    ctx.arc(e.x + 15, e.y + 7, 3, 0, Math.PI*2);
+    ctx.fill();
+    // HP bar
+    if (e.hp < e.maxHp) {
+      ctx.fillStyle = '#333';
+      ctx.fillRect(e.x, e.y - 8, e.w, 4);
+      ctx.fillStyle = '#e33';
+      ctx.fillRect(e.x, e.y - 8, e.w * (e.hp/e.maxHp), 4);
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  // Jogador
+  ctx.globalAlpha = player.invincible > 0 && Math.floor(player.invincible/3)%2 ? 0.4 : 1;
+  // corpo
+  ctx.fillStyle = '#36c';
+  ctx.fillRect(player.x+2, player.y+8, 16, 16);
+  // cabeça
+  ctx.fillStyle = '#fdb';
+  ctx.beginPath();
+  ctx.arc(player.x + 10, player.y + 7, 8, 0, Math.PI*2);
+  ctx.fill();
+  // olhos conforme direção
+  ctx.fillStyle = '#222';
+  if (player.dir === 'down') {
+    ctx.fillRect(player.x+6, player.y+5, 3, 3);
+    ctx.fillRect(player.x+12, player.y+5, 3, 3);
+  } else if (player.dir === 'up') {
+    ctx.fillRect(player.x+6, player.y+4, 3, 2);
+    ctx.fillRect(player.x+12, player.y+4, 3, 2);
+  } else if (player.dir === 'left') {
+    ctx.fillRect(player.x+5, player.y+5, 3, 3);
+  } else {
+    ctx.fillRect(player.x+12, player.y+5, 3, 3);
+  }
+  // arma (quando ataca)
+  if (player.attackCooldown > 15) {
+    ctx.fillStyle = '#ccc';
+    ctx.fillRect(player.x + 18, player.y + 10, 14, 4);
+  }
+  ctx.globalAlpha = 1;
+
+  ctx.restore();
+}
+
+function loop() {
+  if (!gameStarted) return;
+  update();
+  draw();
+  requestAnimationFrame(loop);
+}
+
+updateUI();
+</script>
+</body>
+</html>
